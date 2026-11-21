@@ -18,6 +18,8 @@ Open http://localhost:3000.
 - **Extract pages** — creates a new PDF from page selections such as `1, 3-5, 8`.
 - **Reorder pages** — rebuilds the PDF in a custom sequence; list every page once, such as `3, 1, 2`.
 - **Duplicate pages** — appends copies of selected pages to the end of the document.
+- **PDF to images** — renders each PDF page locally as a PNG or JPEG image at 1.5× scale.
+- **Add blank pages** — inserts 1–20 blank pages at the start or end, using the first page dimensions.
 - **Delete pages** — removes selected pages while requiring at least one page to remain.
 - **Rotate PDF** — rotates all pages by 90°, 180° or 270°.
 - **Page numbers** — adds sequential page numbers at the bottom center.
