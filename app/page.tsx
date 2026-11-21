@@ -77,7 +77,7 @@ export default function Home() {
     setPreviewLoading(true); setPagePreviews([]); setVisualRemove([]); setMessage("");
     (async()=>{
       const pdfjs=await import("pdfjs-dist/legacy/build/pdf.mjs");
-      pdfjs.GlobalWorkerOptions.workerSrc="https://unpkg.com/pdfjs-dist@4.8.69/legacy/build/pdf.worker.min.mjs";
+      pdfjs.GlobalWorkerOptions.workerSrc = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/pdf.worker.min.mjs`;
       const data=new Uint8Array(await files[0].file.arrayBuffer());
       const pdf=await pdfjs.getDocument({data}).promise; loadedPdf=pdf;
       const previews:string[]=[];
@@ -163,7 +163,7 @@ export default function Home() {
         download(await doc.save(),"rotated.pdf"); setMessage("Rotated "+(rotationScope==="all"?"all pages":indexes.length+" selected page(s)")+".");
       } else if(active==="compress") {
         const pdfjs=await import("pdfjs-dist/legacy/build/pdf.mjs");
-        pdfjs.GlobalWorkerOptions.workerSrc="https://unpkg.com/pdfjs-dist@4.8.69/legacy/build/pdf.worker.min.mjs";
+        pdfjs.GlobalWorkerOptions.workerSrc = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/pdf.worker.min.mjs`;
         const pdf=await pdfjs.getDocument({data:new Uint8Array(await files[0].file.arrayBuffer())}).promise;
         const presets={low:{scale:1.25,quality:.82},medium:{scale:1,quality:.62},high:{scale:.72,quality:.42}};
         const candidates=compressMode==="target"?[{scale:1,quality:.82},{scale:.9,quality:.68},{scale:.8,quality:.55},{scale:.7,quality:.42},{scale:.58,quality:.32}]:[presets[compressLevel]];
@@ -208,7 +208,7 @@ export default function Home() {
         download(await doc.save(),"numbered.pdf"); setMessage("Added page numbers to "+doc.getPageCount()+" page(s).");
       } else if(active==="toimages") {
         const pdfjs=await import("pdfjs-dist/legacy/build/pdf.mjs");
-        pdfjs.GlobalWorkerOptions.workerSrc="https://unpkg.com/pdfjs-dist@4.8.69/legacy/build/pdf.worker.min.mjs";
+        pdfjs.GlobalWorkerOptions.workerSrc = `${process.env.NEXT_PUBLIC_BASE_PATH || ""}/pdf.worker.min.mjs`;
         const data=new Uint8Array(await files[0].file.arrayBuffer());
         const pdf=await pdfjs.getDocument({data}).promise;
         const totalPages=pdf.numPages;
