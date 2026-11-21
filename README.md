@@ -24,6 +24,7 @@ Open http://localhost:3000.
 - **Rotate PDF** — rotate the whole document or selected pages by 90°, 180° or 270°.
 - **Page numbers** — adds sequential page numbers at the bottom center.
 - **Watermark PDF** — stamp custom text on all pages or selected page ranges.
+- **Remove watermark** — removes standard PDF `/Watermark` annotations from all pages or selected page ranges. It cannot erase watermarks flattened into page content, images or scans.
 - **Edit metadata** — updates title, author, subject and keywords.
 - **Compress PDF** — choose low, medium or high compression, or set a best-effort target size. This rasterizes pages, so searchable text and vectors are not preserved.
 - **Images to PDF** — combines JPG and PNG images in a user-controlled order.
