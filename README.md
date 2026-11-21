@@ -28,6 +28,7 @@ Open http://localhost:3000.
 - **Optimize PDF** — rewrites the document using PDF object streams. This is structural optimization, not guaranteed image compression.
 - **Images to PDF** — combines JPG and PNG images into a PDF.
 - **PDF details** — reads page count, file size and title metadata.
+- **Visual page manager** — generates page thumbnails, lets users reorder pages and mark pages for removal, then exports the arranged PDF.
 
 Password protection is intentionally marked unsupported because PDF-lib does not provide PDF encryption. The app does not falsely claim a file is protected.
 
@@ -37,7 +38,7 @@ PDF inputs are read through the browser File API and processed in the page. This
 
 ## Current limitations
 
-- A full visual text editor, OCR, Word/Excel/PowerPoint conversions, password encryption, and real image recompression are not included yet.
+- A full visual text editor, OCR, Word/Excel/PowerPoint conversions, password encryption, and real image recompression are not included yet. The visual page manager handles page order and removal, not text or image content editing.
 - Browser memory limits depend on the user's device and the size of input documents.
 - Some encrypted, malformed, or unusual PDFs may not be supported by PDF-lib.
 
