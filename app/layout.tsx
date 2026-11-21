@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "PDF EDITOR — Simple tools for everyday documents",
-  description: "Merge, split, rotate and organize PDF files in your browser. Private, straightforward PDF tools.",
+  title: "FREE + ADS | FREE EDITOR",
+  description: "Free browser-based PDF editor. Merge, split, rotate, compress, watermark and protect PDF files locally.",
   keywords: ["PDF editor", "merge PDF", "split PDF", "compress PDF", "PDF tools"]
 };
 
