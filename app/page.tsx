@@ -1,10 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Scissors, Combine, RotateCw, Minimize2, Image, ShieldCheck, Droplets, FileImage, ArrowRight, UploadCloud, X, Download, LockKeyhole, Search, Sparkles, Files, Trash2, ListPlus, Eraser, Hash, Tags, ChevronUp, ChevronDown } from "lucide-react";
 import { PDFDocument, degrees, rgb } from "pdf-lib";
 
-type ToolId = "merge" | "split" | "rotate" | "compress" | "images" | "watermark" | "protect" | "preview" | "extract" | "delete" | "number" | "metadata" | "reorder" | "duplicate" | "toimages" | "blank";
+type ToolId = "merge" | "split" | "rotate" | "compress" | "images" | "watermark" | "protect" | "preview" | "extract" | "delete" | "number" | "metadata" | "reorder" | "duplicate" | "toimages" | "blank" | "visual";
 type PdfFile = { file: File; id: string };
 
 const tools: {id:ToolId;name:string;description:string;icon:typeof FileText;category:string;accent:string}[] = [
@@ -23,7 +23,8 @@ const tools: {id:ToolId;name:string;description:string;icon:typeof FileText;cate
   {id:"reorder",name:"Reorder pages",description:"Arrange PDF pages in a custom sequence.",icon:ListPlus,category:"Organize",accent:"blue"},
   {id:"duplicate",name:"Duplicate pages",description:"Copy selected pages into the same PDF.",icon:Files,category:"Organize",accent:"purple"},
   {id:"toimages",name:"PDF to images",description:"Export PDF pages as PNG or JPEG images.",icon:FileImage,category:"Convert",accent:"pink"},
-  {id:"blank",name:"Add blank pages",description:"Insert blank pages at the beginning or end.",icon:FileText,category:"Edit",accent:"cyan"}
+  {id:"blank",name:"Add blank pages",description:"Insert blank pages at the beginning or end.",icon:FileText,category:"Edit",accent:"cyan"},
+  {id:"visual",name:"Visual page manager",description:"Preview, reorder and remove pages visually.",icon:FileImage,category:"Organize",accent:"blue"}
 ];
 
 const iconColors: Record<string,string> = {green:"bg-emerald-50 text-emerald-700",blue:"bg-blue-50 text-blue-700",orange:"bg-orange-50 text-orange-700",purple:"bg-violet-50 text-violet-700",pink:"bg-pink-50 text-pink-700",cyan:"bg-cyan-50 text-cyan-700",amber:"bg-amber-50 text-amber-700",slate:"bg-slate-100 text-slate-700"};
@@ -42,6 +43,10 @@ export default function Home() {
   const [imageFormat,setImageFormat] = useState<"png"|"jpeg">("png");
   const [blankCount,setBlankCount] = useState(1);
   const [blankPosition,setBlankPosition] = useState<"start"|"end">("end");
+  const [pagePreviews,setPagePreviews] = useState<string[]>([]);
+  const [visualOrder,setVisualOrder] = useState<number[]>([]);
+  const [visualRemove,setVisualRemove] = useState<number[]>([]);
+  const [previewLoading,setPreviewLoading] = useState(false);
   const [numberStart,setNumberStart] = useState(1);
   const [metaTitle,setMetaTitle] = useState("");
   const [metaAuthor,setMetaAuthor] = useState("");
@@ -52,6 +57,39 @@ export default function Home() {
   const selectedTool = tools.find(t=>t.id===active);
   const filtered = useMemo(()=>tools.filter(t=>(t.name+" "+t.description+" "+t.category).toLowerCase().includes(query.toLowerCase())),[query]);
 
+  useEffect(()=>{
+    if(active!=="visual" || !files[0]) { setPagePreviews([]); setVisualOrder([]); setVisualRemove([]); setPreviewLoading(false); return; }
+    let cancelled=false;
+    let loadedPdf: {destroy:()=>Promise<void>} | null=null;
+    setPreviewLoading(true); setPagePreviews([]); setVisualRemove([]); setMessage("");
+    (async()=>{
+      const pdfjs=await import("pdfjs-dist/legacy/build/pdf.mjs");
+      pdfjs.GlobalWorkerOptions.workerSrc="https://unpkg.com/pdfjs-dist@4.8.69/legacy/build/pdf.worker.min.mjs";
+      const data=new Uint8Array(await files[0].file.arrayBuffer());
+      const pdf=await pdfjs.getDocument({data}).promise; loadedPdf=pdf;
+      const previews:string[]=[];
+      for(let pageNumber=1;pageNumber<=pdf.numPages;pageNumber++) {
+        if(cancelled) break;
+        const page=await pdf.getPage(pageNumber); const viewport=page.getViewport({scale:.42});
+        const canvas=document.createElement("canvas"); const context=canvas.getContext("2d");
+        if(!context) throw new Error("Your browser could not create a page preview.");
+        canvas.width=Math.ceil(viewport.width); canvas.height=Math.ceil(viewport.height);
+        await page.render({canvasContext:context,viewport}).promise;
+        previews.push(canvas.toDataURL("image/jpeg",.76)); page.cleanup();
+        if(!cancelled) setPagePreviews([...previews]);
+      }
+      if(!cancelled) setVisualOrder(Array.from({length:pdf.numPages},(_,index)=>index));
+      await pdf.destroy(); loadedPdf=null;
+    })().catch(error=>{if(!cancelled)setMessage(error instanceof Error?error.message:"Could not create page previews.");}).finally(()=>{if(!cancelled)setPreviewLoading(false);});
+    return ()=>{cancelled=true; if(loadedPdf) void loadedPdf.destroy();};
+  },[active,files[0]?.id]);
+
+  function moveVisualPage(index:number,direction:-1|1) {
+    setVisualOrder(old=>{const next=[...old]; const target=index+direction; if(target<0||target>=next.length)return old; [next[index],next[target]]=[next[target],next[index]]; return next;});
+  }
+  function toggleVisualRemove(pageIndex:number) {
+    setVisualRemove(old=>old.includes(pageIndex)?old.filter(value=>value!==pageIndex):[...old,pageIndex]);
+  }
   function moveFile(index:number,direction:-1|1) {
     setFiles(old=>{const next=[...old]; const target=index+direction; if(target<0||target>=next.length)return old; [next[index],next[target]]=[next[target],next[index]]; return next;});
   }
@@ -73,7 +111,7 @@ export default function Home() {
     setFiles(old=>[...old,...accepted.map(file=>({file,id: crypto.randomUUID()}))]);
     setMessage("");
   }
-  function reset() { setFiles([]); setMessage(""); setPageRange("1-2"); setPageOrder("1, 2, 3"); setBlankCount(1); setBlankPosition("end"); setImageFormat("png"); setNumberStart(1); setMetaTitle(""); setMetaAuthor(""); setMetaSubject(""); setMetaKeywords(""); if(inputRef.current) inputRef.current.value=""; if(imageRef.current) imageRef.current.value=""; }
+  function reset() { setFiles([]); setMessage(""); setPagePreviews([]); setVisualOrder([]); setVisualRemove([]); setPageRange("1-2"); setPageOrder("1, 2, 3"); setBlankCount(1); setBlankPosition("end"); setImageFormat("png"); setNumberStart(1); setMetaTitle(""); setMetaAuthor(""); setMetaSubject(""); setMetaKeywords(""); if(inputRef.current) inputRef.current.value=""; if(imageRef.current) imageRef.current.value=""; }
   function download(bytes: Uint8Array, name: string) {
     const blob = new Blob([bytes.slice().buffer as ArrayBuffer],{type:"application/pdf"});
     const url = URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url);
@@ -141,7 +179,7 @@ export default function Home() {
         download(await doc.save(),"numbered.pdf"); setMessage("Added page numbers to "+doc.getPageCount()+" page(s).");
       } else if(active==="toimages") {
         const pdfjs=await import("pdfjs-dist/legacy/build/pdf.mjs");
-        pdfjs.GlobalWorkerOptions.workerSrc=new URL("pdfjs-dist/legacy/build/pdf.worker.min.mjs",import.meta.url).toString();
+        pdfjs.GlobalWorkerOptions.workerSrc="https://unpkg.com/pdfjs-dist@4.8.69/legacy/build/pdf.worker.min.mjs";
         const data=new Uint8Array(await files[0].file.arrayBuffer());
         const pdf=await pdfjs.getDocument({data}).promise;
         const totalPages=pdf.numPages;
@@ -156,6 +194,14 @@ export default function Home() {
           page.cleanup();
         }
         await pdf.destroy(); setMessage("Exported "+totalPages+" page(s) as "+imageFormat.toUpperCase()+". Your browser may ask to allow multiple downloads.");
+      } else if(active==="visual") {
+        const source=await PDFDocument.load(await files[0].file.arrayBuffer());
+        const keep=visualOrder.filter(index=>!visualRemove.includes(index));
+        if(!keep.length) throw new Error("Keep at least one page in the document.");
+        const output=await PDFDocument.create();
+        (await output.copyPages(source,keep)).forEach(page=>output.addPage(page));
+        download(await output.save(),"visually-edited.pdf");
+        setMessage("Exported "+keep.length+" page(s) in the displayed order.");
       } else if(active==="blank") {
         const doc=await PDFDocument.load(await files[0].file.arrayBuffer());
         const first=doc.getPages()[0]; const {width,height}=first.getSize();
@@ -228,6 +274,7 @@ export default function Home() {
           {files.length>0 && <div className="mt-4 space-y-2">{files.map((item,i)=><div key={item.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3"><FileText size={18} className="shrink-0 text-emerald-700"/><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{item.file.name}</p><p className="text-xs text-slate-400">{(item.file.size/1024).toFixed(1)} KB</p></div>{active==="merge"&&<><span className="text-xs text-slate-400">#{i+1}</span><button aria-label="Move file up" disabled={i===0} onClick={()=>moveFile(i,-1)} className="rounded-md p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronUp size={16}/></button><button aria-label="Move file down" disabled={i===files.length-1} onClick={()=>moveFile(i,1)} className="rounded-md p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronDown size={16}/></button></>}<button aria-label="Remove file" onClick={()=>setFiles(old=>old.filter(f=>f.id!==item.id))} className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-red-600"><Trash2 size={15}/></button></div>)}</div>}
           {active==="rotate"&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">Rotation angle</label><div className="grid grid-cols-3 gap-2">{[90,180,270].map(n=><button key={n} onClick={()=>setRotation(n)} className={`rounded-xl border py-2 text-sm font-bold ${rotation===n?"border-emerald-600 bg-emerald-50 text-emerald-800":"border-slate-200 text-slate-600"}`}>{n}°</button>)}</div></div>}
           {(active==="extract"||active==="delete"||active==="duplicate")&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">Page numbers or ranges</label><input value={pageRange} onChange={e=>setPageRange(e.target.value)} placeholder="Example: 1, 3-5, 8" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"/><p className="mt-2 text-xs text-slate-400">Use commas for separate pages and hyphens for ranges. Pages start at 1.</p></div>}
+          {active==="visual"&&<div className="mt-5"><div className="mb-3 flex items-center justify-between gap-3"><p className="text-sm font-semibold">Page layout</p><p className="text-xs text-slate-500">{visualOrder.length} pages · {visualRemove.length} marked for removal</p></div>{previewLoading&&<p className="mb-3 rounded-xl bg-blue-50 p-3 text-sm text-blue-800">Generating page thumbnails…</p>}{pagePreviews.length>0&&<div className="grid max-h-[360px] grid-cols-2 gap-3 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-3 sm:grid-cols-3">{visualOrder.map((originalIndex,position)=><div key={originalIndex} className={`rounded-xl border bg-white p-2 ${visualRemove.includes(originalIndex)?"border-red-300 opacity-50":"border-slate-200"}`}><div className="mb-2 flex items-center justify-between gap-1"><span className="text-xs font-bold text-slate-600">Position {position+1}</span><label className="flex items-center gap-1 text-[11px] font-semibold text-red-700"><input type="checkbox" checked={visualRemove.includes(originalIndex)} onChange={()=>toggleVisualRemove(originalIndex)}/> Remove</label></div><img src={pagePreviews[originalIndex]} alt={"Preview of original page "+(originalIndex+1)} className="mx-auto max-h-40 w-auto border border-slate-100 object-contain"/><p className="mt-2 text-center text-[11px] text-slate-500">Original page {originalIndex+1}</p><div className="mt-2 flex justify-center gap-2"><button aria-label="Move page earlier" disabled={position===0} onClick={()=>moveVisualPage(position,-1)} className="rounded-lg border border-slate-200 p-1.5 text-slate-600 disabled:opacity-30"><ChevronUp size={15}/></button><button aria-label="Move page later" disabled={position===visualOrder.length-1} onClick={()=>moveVisualPage(position,1)} className="rounded-lg border border-slate-200 p-1.5 text-slate-600 disabled:opacity-30"><ChevronDown size={15}/></button></div></div>)}</div>}{!previewLoading&&pagePreviews.length===0&&!message&&<p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-500">Upload a PDF to see page previews.</p>}<p className="mt-2 text-xs text-slate-400">Use the arrows to change page order. Mark pages for removal, then export the remaining pages.</p></div>}
           {active==="toimages"&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">Image format</label><div className="grid grid-cols-2 gap-2">{(["png","jpeg"] as const).map(format=><button key={format} onClick={()=>setImageFormat(format)} className={`rounded-xl border py-2.5 text-sm font-bold ${imageFormat===format?"border-emerald-600 bg-emerald-50 text-emerald-800":"border-slate-200 text-slate-600"}`}>{format.toUpperCase()}</button>)}</div><p className="mt-2 text-xs text-slate-400">Each page is rendered locally at 1.5× scale and downloaded as a separate image.</p></div>}
           {active==="blank"&&<div className="mt-5 space-y-4"><label className="block text-sm font-semibold">Number of blank pages<input type="number" min="1" max="20" value={blankCount} onChange={e=>setBlankCount(Math.min(20,Math.max(1,Number(e.target.value)||1)))} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-normal outline-none focus:border-emerald-600"/></label><div><label className="mb-2 block text-sm font-semibold">Insert position</label><div className="grid grid-cols-2 gap-2">{(["start","end"] as const).map(position=><button key={position} onClick={()=>setBlankPosition(position)} className={`rounded-xl border py-2.5 text-sm font-bold capitalize ${blankPosition===position?"border-emerald-600 bg-emerald-50 text-emerald-800":"border-slate-200 text-slate-600"}`}>{position}</button>)}</div></div><p className="text-xs text-slate-400">Blank pages use the size of the first page in the document.</p></div>}
           {active==="reorder"&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">New page order</label><input value={pageOrder} onChange={e=>setPageOrder(e.target.value)} placeholder="Example: 3, 1, 2, 4" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"/><p className="mt-2 text-xs text-slate-400">Enter every page number once. For example, 3, 1, 2 moves page 3 first.</p></div>}
@@ -235,7 +282,7 @@ export default function Home() {
           {active==="metadata"&&<div className="mt-5 grid gap-3"><label className="text-sm font-semibold">Document title<input value={metaTitle} onChange={e=>setMetaTitle(e.target.value)} placeholder="Title" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><label className="text-sm font-semibold">Author<input value={metaAuthor} onChange={e=>setMetaAuthor(e.target.value)} placeholder="Author name" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><label className="text-sm font-semibold">Subject<input value={metaSubject} onChange={e=>setMetaSubject(e.target.value)} placeholder="Document subject" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><label className="text-sm font-semibold">Keywords<input value={metaKeywords} onChange={e=>setMetaKeywords(e.target.value)} placeholder="comma, separated, keywords" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><p className="text-xs text-slate-400">Leave a field blank to keep its existing value.</p></div>}
           {active==="watermark"&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">Watermark text</label><input value={watermark} onChange={e=>setWatermark(e.target.value)} maxLength={40} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"/></div>}
           {message && <p className={`mt-4 rounded-xl p-3 text-sm ${message.includes("ready")||message.includes("Downloaded")||message.includes("pages")?"bg-emerald-50 text-emerald-800":"bg-amber-50 text-amber-800"}`}>{message}</p>}
-          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between"><button onClick={reset} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50">Clear files</button><button disabled={!files.length||busy||(active==="merge"&&files.length<2)||((active==="extract"||active==="delete"||active==="duplicate")&&!pageRange.trim())||(active==="reorder"&&!pageOrder.trim())||(active==="blank"&&(blankCount<1||blankCount>20))||(active==="watermark"&&!watermark.trim())||(active==="number"&&numberStart<1)} onClick={runTool} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#173f2d] px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">{busy?"Processing…":active==="preview"?"Inspect PDF":active==="toimages"?"Convert to images":"Process and download"} <Download size={16}/></button></div>
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between"><button onClick={reset} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50">Clear files</button><button disabled={!files.length||busy||(active==="merge"&&files.length<2)||((active==="extract"||active==="delete"||active==="duplicate")&&!pageRange.trim())||(active==="reorder"&&!pageOrder.trim())||(active==="blank"&&(blankCount<1||blankCount>20))||(active==="visual"&&(previewLoading||!visualOrder.length||visualOrder.every(index=>visualRemove.includes(index))))||(active==="watermark"&&!watermark.trim())||(active==="number"&&numberStart<1)} onClick={runTool} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#173f2d] px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">{busy?"Processing…":active==="preview"?"Inspect PDF":active==="toimages"?"Convert to images":active==="visual"?"Export arranged PDF":"Process and download"} <Download size={16}/></button></div>
           <p className="mt-4 flex items-center justify-center gap-2 text-center text-[11px] text-slate-400"><ShieldCheck size={13}/> Files are processed in this browser tab.</p>
         </div>
       </div>
