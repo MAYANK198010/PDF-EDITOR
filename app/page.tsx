@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileText, Scissors, Combine, RotateCw, Minimize2, Image, ShieldCheck, Droplets, FileImage, ArrowRight, UploadCloud, X, Download, LockKeyhole, Search, Sparkles, Files, Trash2, ListPlus, Eraser, Hash, Tags, ChevronUp, ChevronDown } from "lucide-react";
-import { PDFDocument, degrees, rgb } from "pdf-lib";
+import { PDFDocument, PDFName, PDFDict, degrees, rgb } from "pdf-lib";
 
-type ToolId = "merge" | "split" | "rotate" | "compress" | "images" | "watermark" | "protect" | "preview" | "extract" | "delete" | "number" | "metadata" | "reorder" | "duplicate" | "toimages" | "blank" | "visual";
+type ToolId = "merge" | "split" | "rotate" | "compress" | "images" | "watermark" | "removeWatermark" | "protect" | "preview" | "extract" | "delete" | "number" | "metadata" | "reorder" | "duplicate" | "toimages" | "blank" | "visual";
 type PdfFile = { file: File; id: string };
 
 const tools: {id:ToolId;name:string;description:string;icon:typeof FileText;category:string;accent:string}[] = [
@@ -14,6 +14,7 @@ const tools: {id:ToolId;name:string;description:string;icon:typeof FileText;cate
   {id:"compress",name:"Compress PDF",description:"Choose a compression level or target file size.",icon:Minimize2,category:"Optimize",accent:"purple"},
   {id:"images",name:"Images to PDF",description:"Arrange JPG and PNG images before creating a PDF.",icon:Image,category:"Convert",accent:"pink"},
   {id:"watermark",name:"Watermark PDF",description:"Choose exactly which pages receive a watermark.",icon:Droplets,category:"Edit",accent:"cyan"},
+  {id:"removeWatermark",name:"Remove watermark",description:"Remove standard PDF watermark annotations from selected pages.",icon:Eraser,category:"Edit",accent:"orange"},
   {id:"protect",name:"Protect PDF",description:"Encrypt a PDF with an opening password.",icon:LockKeyhole,category:"Secure",accent:"amber"},
   {id:"preview",name:"PDF details",description:"Inspect page count and document size.",icon:FileImage,category:"View",accent:"slate"},
   {id:"extract",name:"Extract pages",description:"Save selected pages into a new PDF.",icon:ListPlus,category:"Organize",accent:"blue"},
@@ -47,6 +48,7 @@ export default function Home() {
   const [compressLevel,setCompressLevel] = useState<"low"|"medium"|"high">("medium");
   const [targetSizeMb,setTargetSizeMb] = useState(2);
   const [watermarkScope,setWatermarkScope] = useState<"all"|"selected">("all");
+  const [removeWatermarkScope,setRemoveWatermarkScope] = useState<"all"|"selected">("all");
   const [protectPassword,setProtectPassword] = useState("");
   const [protectConfirm,setProtectConfirm] = useState("");
   const [dragPageIndex,setDragPageIndex] = useState<number|null>(null);
@@ -175,6 +177,24 @@ export default function Home() {
         const indexes=watermarkScope==="all"?doc.getPageIndices():parsePageRange(pageRange,doc.getPageCount());
         indexes.forEach(index=>{const page=doc.getPage(index);const {width,height}=page.getSize();page.drawText(watermark,{x:width*.18,y:height*.48,size:30,font,color:rgb(.72,.72,.72),rotate:degrees(-35),opacity:.35});});
         download(await doc.save(),"watermarked.pdf");setMessage("Watermark added to "+(watermarkScope==="all"?"all pages":indexes.length+" selected page(s)")+".");
+      } else if(active==="removeWatermark") {
+        const doc=await PDFDocument.load(await files[0].file.arrayBuffer());
+        const indexes=removeWatermarkScope==="all"?doc.getPageIndices():parsePageRange(pageRange,doc.getPageCount());
+        let removed=0;
+        for(const index of indexes){
+          const page=doc.getPage(index);
+          const annotations=page.node.Annots();
+          if(!annotations) continue;
+          for(let i=annotations.size()-1;i>=0;i--){
+            const annotation=annotations.lookup(i);
+            if(annotation instanceof PDFDict && annotation.lookup(PDFName.of("Subtype"))?.toString()==="/Watermark"){
+              annotations.remove(i); removed++;
+            }
+          }
+        }
+        if(removed===0) throw new Error("No standard watermark annotations were found on the chosen pages. Flattened text, images, and background watermarks cannot be safely removed by this tool.");
+        download(await doc.save(),"watermarks-removed.pdf");
+        setMessage("Removed "+removed+" standard watermark annotation(s).");
       } else if(active==="images") {
         const doc=await PDFDocument.create();
         for(const item of files) {
@@ -312,9 +332,10 @@ export default function Home() {
           {active==="reorder"&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">Visual page order</label>{previewLoading&&<p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800">Creating page previews…</p>}{pagePreviews.length>0?<div className="grid max-h-[380px] grid-cols-2 gap-3 overflow-y-auto rounded-xl border border-slate-100 bg-slate-50 p-3 sm:grid-cols-3">{visualOrder.map((originalIndex,position)=><div key={originalIndex} draggable onDragStart={()=>setDragPageIndex(position)} onDragOver={e=>e.preventDefault()} onDrop={()=>dropVisualPage(position)} className="cursor-grab rounded-xl border border-slate-200 bg-white p-2"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-bold">Position {position+1}</span><span className="text-[10px] text-slate-400">Drag to move</span></div><img src={pagePreviews[originalIndex]} alt={"Page "+(originalIndex+1)} className="mx-auto max-h-40 border object-contain"/><p className="mt-2 text-center text-xs text-slate-500">Original page {originalIndex+1}</p><div className="mt-2 flex justify-center gap-2"><button aria-label="Move page up" disabled={position===0} onClick={()=>moveVisualPage(position,-1)} className="rounded-lg border p-1.5 disabled:opacity-30"><ChevronUp size={15}/></button><button aria-label="Move page down" disabled={position===visualOrder.length-1} onClick={()=>moveVisualPage(position,1)} className="rounded-lg border p-1.5 disabled:opacity-30"><ChevronDown size={15}/></button></div></div>)}</div>:<><input value={pageOrder} onChange={e=>setPageOrder(e.target.value)} placeholder="Example: 3, 1, 2, 4" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm"/><p className="mt-2 text-xs text-slate-400">Upload a PDF to see thumbnails, then drag pages or use arrows.</p></>}</div>}
           {active==="number"&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">Starting page number</label><input type="number" min="1" max="999999" value={numberStart} onChange={e=>setNumberStart(Math.max(1,Number(e.target.value)||1))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"/><p className="mt-2 text-xs text-slate-400">Numbers are placed at the bottom center of each page.</p></div>}
           {active==="metadata"&&<div className="mt-5 grid gap-3"><label className="text-sm font-semibold">Document title<input value={metaTitle} onChange={e=>setMetaTitle(e.target.value)} placeholder="Title" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><label className="text-sm font-semibold">Author<input value={metaAuthor} onChange={e=>setMetaAuthor(e.target.value)} placeholder="Author name" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><label className="text-sm font-semibold">Subject<input value={metaSubject} onChange={e=>setMetaSubject(e.target.value)} placeholder="Document subject" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><label className="text-sm font-semibold">Keywords<input value={metaKeywords} onChange={e=>setMetaKeywords(e.target.value)} placeholder="comma, separated, keywords" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><p className="text-xs text-slate-400">Leave a field blank to keep its existing value.</p></div>}
+          {active==="removeWatermark"&&<div className="mt-5 space-y-4"><div><label className="mb-2 block text-sm font-semibold">Remove watermarks from</label><div className="grid grid-cols-2 gap-2">{([{value:"all",label:"All pages"},{value:"selected",label:"Selected pages"}] as const).map(option=><button key={option.value} onClick={()=>setRemoveWatermarkScope(option.value)} className={`rounded-xl border py-2 text-sm font-bold ${removeWatermarkScope===option.value?"border-emerald-600 bg-emerald-50 text-emerald-800":"border-slate-200 text-slate-600"}`}>{option.label}</button>)}</div></div>{removeWatermarkScope==="selected"&&<PageRangeField value={pageRange} onChange={setPageRange}/>}<p className="rounded-xl bg-amber-50 p-3 text-xs leading-5 text-amber-800">This removes standard PDF watermark annotations only. It cannot reliably erase watermarks flattened into page text, images, scans, or background artwork. The original page content is preserved.</p></div>}
           {active==="watermark"&&<div className="mt-5 space-y-4"><div><label className="mb-2 block text-sm font-semibold">Watermark text</label><input value={watermark} onChange={e=>setWatermark(e.target.value)} maxLength={40} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"/></div><div><label className="mb-2 block text-sm font-semibold">Apply watermark to</label><div className="grid grid-cols-2 gap-2">{(["all","selected"] as const).map(scope=><button key={scope} onClick={()=>setWatermarkScope(scope)} className={`rounded-xl border py-2 text-sm font-bold capitalize ${watermarkScope===scope?"border-emerald-600 bg-emerald-50 text-emerald-800":"border-slate-200 text-slate-600"}`}>{scope==="all"?"All pages":"Selected pages"}</button>)}</div></div>{watermarkScope==="selected"&&<PageRangeField value={pageRange} onChange={setPageRange}/>}</div>}
           {message && <p className={`mt-4 rounded-xl p-3 text-sm ${message.includes("ready")||message.includes("Downloaded")||message.includes("pages")?"bg-emerald-50 text-emerald-800":"bg-amber-50 text-amber-800"}`}>{message}</p>}
-          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between"><button onClick={reset} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50">Clear files</button><button disabled={!files.length||busy||(active==="merge"&&files.length<2)||((active==="extract"||active==="delete"||active==="duplicate")&&!pageRange.trim())||(active==="reorder"&&!pageOrder.trim())||(active==="blank"&&(blankCount<1||blankCount>20))||(active==="visual"&&(previewLoading||!visualOrder.length||visualOrder.every(index=>visualRemove.includes(index))))||(active==="watermark"&&!watermark.trim())||(active==="number"&&numberStart<1)} onClick={runTool} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#173f2d] px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">{busy?"Processing…":active==="preview"?"Inspect PDF":active==="toimages"?"Convert to images":active==="visual"?"Export arranged PDF":"Process and download"} <Download size={16}/></button></div>
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between"><button onClick={reset} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50">Clear files</button><button disabled={!files.length||busy||(active==="merge"&&files.length<2)||((active==="extract"||active==="delete"||active==="duplicate")&&!pageRange.trim())||(active==="reorder"&&!pageOrder.trim())||(active==="blank"&&(blankCount<1||blankCount>20))||(active==="visual"&&(previewLoading||!visualOrder.length||visualOrder.every(index=>visualRemove.includes(index))))||(active==="watermark"&&!watermark.trim())||(active==="removeWatermark"&&removeWatermarkScope==="selected"&&!pageRange.trim())||(active==="number"&&numberStart<1)} onClick={runTool} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#173f2d] px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">{busy?"Processing…":active==="preview"?"Inspect PDF":active==="toimages"?"Convert to images":active==="visual"?"Export arranged PDF":"Process and download"} <Download size={16}/></button></div>
           <p className="mt-4 flex items-center justify-center gap-2 text-center text-[11px] text-slate-400"><ShieldCheck size={13}/> Files are processed in this browser tab.</p>
         </div>
       </div>
