@@ -14,23 +14,24 @@ Open http://localhost:3000.
 ## Browser-side tools
 
 - **Merge PDF** — combines multiple PDFs in a user-controlled order. Use the up/down controls to reorder files before merging.
-- **Split PDF** — downloads the first page and remaining pages separately.
+- **Split PDF** — split by pages per file or custom page groups.
 - **Extract pages** — creates a new PDF from page selections such as `1, 3-5, 8`.
 - **Reorder pages** — rebuilds the PDF in a custom sequence; list every page once, such as `3, 1, 2`.
 - **Duplicate pages** — appends copies of selected pages to the end of the document.
 - **PDF to images** — renders each PDF page locally as a PNG or JPEG image at 1.5× scale.
 - **Add blank pages** — inserts 1–20 blank pages at the start or end, using the first page dimensions.
 - **Delete pages** — removes selected pages while requiring at least one page to remain.
-- **Rotate PDF** — rotates all pages by 90°, 180° or 270°.
+- **Rotate PDF** — rotate the whole document or selected pages by 90°, 180° or 270°.
 - **Page numbers** — adds sequential page numbers at the bottom center.
-- **Watermark PDF** — stamps custom text on each page.
+- **Watermark PDF** — stamp custom text on all pages or selected page ranges.
 - **Edit metadata** — updates title, author, subject and keywords.
-- **Optimize PDF** — rewrites the document using PDF object streams. This is structural optimization, not guaranteed image compression.
-- **Images to PDF** — combines JPG and PNG images into a PDF.
+- **Compress PDF** — choose low, medium or high compression, or set a best-effort target size. This rasterizes pages, so searchable text and vectors are not preserved.
+- **Images to PDF** — combines JPG and PNG images in a user-controlled order.
 - **PDF details** — reads page count, file size and title metadata.
-- **Visual page manager** — generates page thumbnails, lets users reorder pages and mark pages for removal, then exports the arranged PDF.
+- **Visual page manager** — preview page thumbnails, drag or move pages, mark pages for removal and export the result.
 
-Password protection is intentionally marked unsupported because PDF-lib does not provide PDF encryption. The app does not falsely claim a file is protected.
+- **Protect PDF** — adds AES-256 password encryption locally in the browser. Keep the password safe; it cannot be recovered if lost.
+- **Reorder pages** — preview page thumbnails and drag or move them into the required order.
 
 ## Privacy
 
