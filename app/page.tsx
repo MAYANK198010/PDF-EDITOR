@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { FileText, Scissors, Combine, RotateCw, Minimize2, Image, ShieldCheck, Droplets, FileImage, ArrowRight, UploadCloud, X, Download, CheckCircle2, LockKeyhole, Search, Menu, Sparkles, Files, Trash2 } from "lucide-react";
-import { PDFDocument, degrees } from "pdf-lib";
+import { PDFDocument, degrees, rgb } from "pdf-lib";
 
 type ToolId = "merge" | "split" | "rotate" | "compress" | "images" | "watermark" | "protect" | "preview";
 type PdfFile = { file: File; id: string };
@@ -72,7 +72,7 @@ export default function Home() {
       } else if(active==="watermark") {
         const doc=await PDFDocument.load(await files[0].file.arrayBuffer());
         const font=await doc.embedFont("Helvetica");
-        doc.getPages().forEach(page=>{const {width,height}=page.getSize(); page.drawText(watermark,{x:width*.18,y:height*.48,size:30,font,color:{type:"RGB",red:.72,green:.72,blue:.72},rotate:degrees(-35),opacity:.35});});
+        doc.getPages().forEach(page=>{const {width,height}=page.getSize(); page.drawText(watermark,{x:width*.18,y:height*.48,size:30,font,color:rgb(.72,.72,.72),rotate:degrees(-35),opacity:.35});});
         download(await doc.save(),"watermarked.pdf"); setMessage("Your watermarked PDF is ready.");
       } else if(active==="images") {
         const doc=await PDFDocument.create();
