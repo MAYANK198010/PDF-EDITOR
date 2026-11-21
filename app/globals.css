@@ -1,0 +1,17 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; background: #f7faf8; color: #17211d; font-family: 'DM Sans', sans-serif; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+::selection { background: #c9f1dc; color: #124b35; }
+.shell { width: min(1120px, calc(100% - 40px)); margin: 0 auto; }
+.tool-card { transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+.tool-card:hover { transform: translateY(-3px); box-shadow: 0 16px 36px rgba(28,55,43,.10); border-color: #b6dfc9; }
+.dropzone { border: 1.5px dashed #b9cfc2; background: linear-gradient(135deg,#fbfefc,#f2faf5); }
+.dropzone.dragging { border-color: #16845b; background: #e9f8ef; }
