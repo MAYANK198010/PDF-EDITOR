@@ -9,12 +9,12 @@ type PdfFile = { file: File; id: string };
 
 const tools: {id:ToolId;name:string;description:string;icon:typeof FileText;category:string;accent:string}[] = [
   {id:"merge",name:"Merge PDF",description:"Combine PDFs in the order you choose.",icon:Combine,category:"Organize",accent:"green"},
-  {id:"split",name:"Split PDF",description:"Extract pages into a separate document.",icon:Scissors,category:"Organize",accent:"blue"},
-  {id:"rotate",name:"Rotate PDF",description:"Turn pages to the correct orientation.",icon:RotateCw,category:"Organize",accent:"orange"},
-  {id:"compress",name:"Compress PDF",description:"Rewrite a PDF to optimize its structure.",icon:Minimize2,category:"Optimize",accent:"purple"},
-  {id:"images",name:"Images to PDF",description:"Turn JPG and PNG images into a PDF.",icon:Image,category:"Convert",accent:"pink"},
-  {id:"watermark",name:"Watermark PDF",description:"Stamp a text watermark onto every page.",icon:Droplets,category:"Edit",accent:"cyan"},
-  {id:"protect",name:"Protect PDF",description:"Add a password to a PDF file.",icon:LockKeyhole,category:"Secure",accent:"amber"},
+  {id:"split",name:"Split PDF",description:"Split by page ranges or pages per file.",icon:Scissors,category:"Organize",accent:"blue"},
+  {id:"rotate",name:"Rotate PDF",description:"Rotate all pages or only selected pages.",icon:RotateCw,category:"Organize",accent:"orange"},
+  {id:"compress",name:"Compress PDF",description:"Choose a compression level or target file size.",icon:Minimize2,category:"Optimize",accent:"purple"},
+  {id:"images",name:"Images to PDF",description:"Arrange JPG and PNG images before creating a PDF.",icon:Image,category:"Convert",accent:"pink"},
+  {id:"watermark",name:"Watermark PDF",description:"Choose exactly which pages receive a watermark.",icon:Droplets,category:"Edit",accent:"cyan"},
+  {id:"protect",name:"Protect PDF",description:"Encrypt a PDF with an opening password.",icon:LockKeyhole,category:"Secure",accent:"amber"},
   {id:"preview",name:"PDF details",description:"Inspect page count and document size.",icon:FileImage,category:"View",accent:"slate"},
   {id:"extract",name:"Extract pages",description:"Save selected pages into a new PDF.",icon:ListPlus,category:"Organize",accent:"blue"},
   {id:"delete",name:"Delete pages",description:"Remove selected pages from a PDF.",icon:Eraser,category:"Organize",accent:"orange"},
@@ -129,7 +129,7 @@ export default function Home() {
     setFiles(old=>[...old,...accepted.map(file=>({file,id: crypto.randomUUID()}))]);
     setMessage("");
   }
-  function reset() { setFiles([]); setMessage(""); setPagePreviews([]); setVisualOrder([]); setVisualRemove([]); setPageRange("1-2"); setPageOrder("1, 2, 3"); setBlankCount(1); setBlankPosition("end"); setImageFormat("png"); setNumberStart(1); setMetaTitle(""); setMetaAuthor(""); setMetaSubject(""); setMetaKeywords(""); if(inputRef.current) inputRef.current.value=""; if(imageRef.current) imageRef.current.value=""; }
+  function reset() { setFiles([]); setMessage(""); setPagePreviews([]); setVisualOrder([]); setVisualRemove([]); setPageRange("1-2"); setPageOrder("1, 2, 3"); setSplitMode("chunks"); setSplitRanges("1-3; 4-6"); setPagesPerFile(1); setCompressMode("preset"); setCompressLevel("medium"); setTargetSizeMb(2); setRotationScope("all"); setWatermarkScope("all"); setProtectPassword(""); setProtectConfirm(""); setBlankCount(1); setBlankPosition("end"); setImageFormat("png"); setNumberStart(1); setMetaTitle(""); setMetaAuthor(""); setMetaSubject(""); setMetaKeywords(""); if(inputRef.current) inputRef.current.value=""; if(imageRef.current) imageRef.current.value=""; }
   function download(bytes: Uint8Array, name: string) {
     const blob = new Blob([bytes.slice().buffer as ArrayBuffer],{type:"application/pdf"});
     const url = URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url);
