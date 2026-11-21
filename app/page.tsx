@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { FileText, Scissors, Combine, RotateCw, Minimize2, Image, ShieldCheck, Droplets, FileImage, ArrowRight, UploadCloud, X, Download, LockKeyhole, Search, Sparkles, Files, Trash2, ListPlus, Eraser, Hash, Tags, ChevronUp, ChevronDown } from "lucide-react";
 import { PDFDocument, degrees, rgb } from "pdf-lib";
 
-type ToolId = "merge" | "split" | "rotate" | "compress" | "images" | "watermark" | "protect" | "preview" | "extract" | "delete" | "number" | "metadata";
+type ToolId = "merge" | "split" | "rotate" | "compress" | "images" | "watermark" | "protect" | "preview" | "extract" | "delete" | "number" | "metadata" | "reorder" | "duplicate";
 type PdfFile = { file: File; id: string };
 
 const tools: {id:ToolId;name:string;description:string;icon:typeof FileText;category:string;accent:string}[] = [
@@ -19,7 +19,9 @@ const tools: {id:ToolId;name:string;description:string;icon:typeof FileText;cate
   {id:"extract",name:"Extract pages",description:"Save selected pages into a new PDF.",icon:ListPlus,category:"Organize",accent:"blue"},
   {id:"delete",name:"Delete pages",description:"Remove selected pages from a PDF.",icon:Eraser,category:"Organize",accent:"orange"},
   {id:"number",name:"Page numbers",description:"Add page numbers to every page.",icon:Hash,category:"Edit",accent:"purple"},
-  {id:"metadata",name:"Edit metadata",description:"Update title, author and document details.",icon:Tags,category:"Edit",accent:"cyan"}
+  {id:"metadata",name:"Edit metadata",description:"Update title, author and document details.",icon:Tags,category:"Edit",accent:"cyan"},
+  {id:"reorder",name:"Reorder pages",description:"Arrange PDF pages in a custom sequence.",icon:ListPlus,category:"Organize",accent:"blue"},
+  {id:"duplicate",name:"Duplicate pages",description:"Copy selected pages into the same PDF.",icon:Files,category:"Organize",accent:"purple"}
 ];
 
 const iconColors: Record<string,string> = {green:"bg-emerald-50 text-emerald-700",blue:"bg-blue-50 text-blue-700",orange:"bg-orange-50 text-orange-700",purple:"bg-violet-50 text-violet-700",pink:"bg-pink-50 text-pink-700",cyan:"bg-cyan-50 text-cyan-700",amber:"bg-amber-50 text-amber-700",slate:"bg-slate-100 text-slate-700"};
@@ -34,6 +36,7 @@ export default function Home() {
   const [rotation,setRotation] = useState(90);
   const [watermark,setWatermark] = useState("CONFIDENTIAL");
   const [pageRange,setPageRange] = useState("1-2");
+  const [pageOrder,setPageOrder] = useState("1, 2, 3");
   const [numberStart,setNumberStart] = useState(1);
   const [metaTitle,setMetaTitle] = useState("");
   const [metaAuthor,setMetaAuthor] = useState("");
@@ -65,7 +68,7 @@ export default function Home() {
     setFiles(old=>[...old,...accepted.map(file=>({file,id: crypto.randomUUID()}))]);
     setMessage("");
   }
-  function reset() { setFiles([]); setMessage(""); setPageRange("1-2"); setNumberStart(1); setMetaTitle(""); setMetaAuthor(""); setMetaSubject(""); setMetaKeywords(""); if(inputRef.current) inputRef.current.value=""; if(imageRef.current) imageRef.current.value=""; }
+  function reset() { setFiles([]); setMessage(""); setPageRange("1-2"); setPageOrder("1, 2, 3"); setNumberStart(1); setMetaTitle(""); setMetaAuthor(""); setMetaSubject(""); setMetaKeywords(""); if(inputRef.current) inputRef.current.value=""; if(imageRef.current) imageRef.current.value=""; }
   function download(bytes: Uint8Array, name: string) {
     const blob = new Blob([bytes.slice().buffer as ArrayBuffer],{type:"application/pdf"});
     const url = URL.createObjectURL(blob); const a=document.createElement("a"); a.href=url; a.download=name; a.click(); URL.revokeObjectURL(url);
@@ -128,6 +131,20 @@ export default function Home() {
         const font=await doc.embedFont("Helvetica");
         doc.getPages().forEach((page,index)=>{const {width}=page.getSize(); const label=String(numberStart+index); const size=10; const textWidth=font.widthOfTextAtSize(label,size); page.drawText(label,{x:(width-textWidth)/2,y:18,size,font,color:rgb(.35,.4,.37)});});
         download(await doc.save(),"numbered.pdf"); setMessage("Added page numbers to "+doc.getPageCount()+" page(s).");
+      } else if(active==="reorder") {
+        const source=await PDFDocument.load(await files[0].file.arrayBuffer());
+        const indexes=parsePageRange(pageOrder,source.getPageCount());
+        if(indexes.length!==source.getPageCount()) throw new Error("List every page exactly once, from 1 to "+source.getPageCount()+".");
+        const output=await PDFDocument.create();
+        (await output.copyPages(source,indexes)).forEach(page=>output.addPage(page));
+        download(await output.save(),"reordered.pdf"); setMessage("Reordered all "+indexes.length+" page(s).");
+      } else if(active==="duplicate") {
+        const source=await PDFDocument.load(await files[0].file.arrayBuffer());
+        const indexes=parsePageRange(pageRange,source.getPageCount());
+        const output=await PDFDocument.create();
+        (await output.copyPages(source,source.getPageIndices())).forEach(page=>output.addPage(page));
+        (await output.copyPages(source,indexes)).forEach(page=>output.addPage(page));
+        download(await output.save(),"duplicated-pages.pdf"); setMessage("Added "+indexes.length+" duplicated page(s) to the end of the PDF.");
       } else if(active==="metadata") {
         const doc=await PDFDocument.load(await files[0].file.arrayBuffer());
         if(metaTitle.trim()) doc.setTitle(metaTitle.trim());
@@ -178,12 +195,13 @@ export default function Home() {
           <div onDragOver={e=>{e.preventDefault();setDragging(true);}} onDragLeave={()=>setDragging(false)} onDrop={e=>{e.preventDefault();setDragging(false);addFiles(e.dataTransfer.files);}} onClick={()=>inputRef.current?.click()} className={`dropzone flex cursor-pointer flex-col items-center rounded-2xl px-5 py-9 text-center ${dragging?"dragging":""}`}><span className="mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-white text-emerald-700 shadow-sm"><UploadCloud size={24}/></span><span className="font-bold">Drop your {active==="images"?"images":"PDF"} here</span><span className="mt-1 text-xs text-slate-500">or click to browse files</span><span className="mt-4 rounded-lg bg-[#173f2d] px-4 py-2 text-xs font-bold text-white">Choose {active==="images"?"images":"PDF files"}</span></div>
           {files.length>0 && <div className="mt-4 space-y-2">{files.map((item,i)=><div key={item.id} className="flex items-center gap-2 rounded-xl border border-slate-100 bg-slate-50 p-3"><FileText size={18} className="shrink-0 text-emerald-700"/><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold">{item.file.name}</p><p className="text-xs text-slate-400">{(item.file.size/1024).toFixed(1)} KB</p></div>{active==="merge"&&<><span className="text-xs text-slate-400">#{i+1}</span><button aria-label="Move file up" disabled={i===0} onClick={()=>moveFile(i,-1)} className="rounded-md p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronUp size={16}/></button><button aria-label="Move file down" disabled={i===files.length-1} onClick={()=>moveFile(i,1)} className="rounded-md p-1 text-slate-500 hover:bg-white disabled:opacity-30"><ChevronDown size={16}/></button></>}<button aria-label="Remove file" onClick={()=>setFiles(old=>old.filter(f=>f.id!==item.id))} className="rounded-lg p-2 text-slate-400 hover:bg-white hover:text-red-600"><Trash2 size={15}/></button></div>)}</div>}
           {active==="rotate"&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">Rotation angle</label><div className="grid grid-cols-3 gap-2">{[90,180,270].map(n=><button key={n} onClick={()=>setRotation(n)} className={`rounded-xl border py-2 text-sm font-bold ${rotation===n?"border-emerald-600 bg-emerald-50 text-emerald-800":"border-slate-200 text-slate-600"}`}>{n}°</button>)}</div></div>}
-          {(active==="extract"||active==="delete")&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">Page numbers or ranges</label><input value={pageRange} onChange={e=>setPageRange(e.target.value)} placeholder="Example: 1, 3-5, 8" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"/><p className="mt-2 text-xs text-slate-400">Use commas for separate pages and hyphens for ranges. Pages start at 1.</p></div>}
+          {(active==="extract"||active==="delete"||active==="duplicate")&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">Page numbers or ranges</label><input value={pageRange} onChange={e=>setPageRange(e.target.value)} placeholder="Example: 1, 3-5, 8" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"/><p className="mt-2 text-xs text-slate-400">Use commas for separate pages and hyphens for ranges. Pages start at 1.</p></div>}
+          {active==="reorder"&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">New page order</label><input value={pageOrder} onChange={e=>setPageOrder(e.target.value)} placeholder="Example: 3, 1, 2, 4" className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"/><p className="mt-2 text-xs text-slate-400">Enter every page number once. For example, 3, 1, 2 moves page 3 first.</p></div>}
           {active==="number"&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">Starting page number</label><input type="number" min="1" max="999999" value={numberStart} onChange={e=>setNumberStart(Math.max(1,Number(e.target.value)||1))} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"/><p className="mt-2 text-xs text-slate-400">Numbers are placed at the bottom center of each page.</p></div>}
           {active==="metadata"&&<div className="mt-5 grid gap-3"><label className="text-sm font-semibold">Document title<input value={metaTitle} onChange={e=>setMetaTitle(e.target.value)} placeholder="Title" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><label className="text-sm font-semibold">Author<input value={metaAuthor} onChange={e=>setMetaAuthor(e.target.value)} placeholder="Author name" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><label className="text-sm font-semibold">Subject<input value={metaSubject} onChange={e=>setMetaSubject(e.target.value)} placeholder="Document subject" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><label className="text-sm font-semibold">Keywords<input value={metaKeywords} onChange={e=>setMetaKeywords(e.target.value)} placeholder="comma, separated, keywords" className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2.5 font-normal outline-none focus:border-emerald-600"/></label><p className="text-xs text-slate-400">Leave a field blank to keep its existing value.</p></div>}
           {active==="watermark"&&<div className="mt-5"><label className="mb-2 block text-sm font-semibold">Watermark text</label><input value={watermark} onChange={e=>setWatermark(e.target.value)} maxLength={40} className="w-full rounded-xl border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"/></div>}
           {message && <p className={`mt-4 rounded-xl p-3 text-sm ${message.includes("ready")||message.includes("Downloaded")||message.includes("pages")?"bg-emerald-50 text-emerald-800":"bg-amber-50 text-amber-800"}`}>{message}</p>}
-          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between"><button onClick={reset} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50">Clear files</button><button disabled={!files.length||busy||(active==="merge"&&files.length<2)||((active==="extract"||active==="delete")&&!pageRange.trim())||(active==="watermark"&&!watermark.trim())||(active==="number"&&numberStart<1)} onClick={runTool} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#173f2d] px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">{busy?"Processing…":active==="preview"?"Inspect PDF":"Process and download"} <Download size={16}/></button></div>
+          <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-between"><button onClick={reset} className="rounded-xl border border-slate-200 px-4 py-3 text-sm font-bold text-slate-600 hover:bg-slate-50">Clear files</button><button disabled={!files.length||busy||(active==="merge"&&files.length<2)||((active==="extract"||active==="delete"||active==="duplicate")&&!pageRange.trim())||(active==="reorder"&&!pageOrder.trim())||(active==="watermark"&&!watermark.trim())||(active==="number"&&numberStart<1)} onClick={runTool} className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#173f2d] px-5 py-3 text-sm font-bold text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">{busy?"Processing…":active==="preview"?"Inspect PDF":"Process and download"} <Download size={16}/></button></div>
           <p className="mt-4 flex items-center justify-center gap-2 text-center text-[11px] text-slate-400"><ShieldCheck size={13}/> Files are processed in this browser tab.</p>
         </div>
       </div>
