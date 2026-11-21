@@ -39,13 +39,11 @@ export const metadata: Metadata = {
     title: "FREE EDITOR — Free Online PDF Tools",
     description: "Merge, split, compress, rotate and organize PDFs with simple browser-based tools. Your PDF files stay on your device.",
     locale: "en_IN",
-    images: [{ url: "/opengraph.svg", width: 1200, height: 630, alt: "FREE EDITOR — Free online PDF tools" }]
   },
   twitter: {
     card: "summary_large_image",
     title: "FREE EDITOR — Free Online PDF Tools",
     description: "Free browser-based tools to merge, split, compress, rotate and organize PDF files.",
-    images: ["/opengraph.svg"]
   },
   robots: {
     index: true,
@@ -59,11 +57,11 @@ export const metadata: Metadata = {
     }
   },
   icons: {
-    icon: [{ url: "/icon.svg", type: "image/svg+xml" }],
-    shortcut: ["/favicon.ico"],
-    apple: [{ url: "/apple-icon.png", sizes: "180x180", type: "image/png" }]
+    icon: [{ url: "/PDF-EDITOR/icon.svg", type: "image/svg+xml" }],
+    shortcut: ["/PDF-EDITOR/icon.svg"],
+    apple: [{ url: "/PDF-EDITOR/apple-icon", sizes: "180x180", type: "image/png" }]
   },
-  manifest: "/manifest.webmanifest"
+  manifest: "/PDF-EDITOR/manifest.webmanifest"
 };
 
 const softwareApplicationSchema = {
