@@ -34,6 +34,13 @@ Open http://localhost:3000.
 - **Protect PDF** — adds AES-256 password encryption locally in the browser. Keep the password safe; it cannot be recovered if lost.
 - **Reorder pages** — preview page thumbnails and drag or move them into the required order.
 
+## SEO and site identity
+
+- Descriptive page title, meta description, relevant search terms, canonical URL, robots directives and SoftwareApplication structured data.
+- Open Graph and Twitter preview images generated locally at build time.
+- XML sitemap at `/PDF-EDITOR/sitemap.xml` and crawler rules at `/PDF-EDITOR/robots.txt`.
+- Custom SVG favicon, Apple touch icon and web app manifest.
+
 ## Privacy
 
 PDF inputs are read through the browser File API and processed in the page. This app does not define an upload endpoint or send documents to a processing server. PDF.js worker code is copied from the pinned npm package into the local static output at build time. No PDF-processing CDN or remote conversion API is used. The interface uses system fonts and does not request Google Fonts.
