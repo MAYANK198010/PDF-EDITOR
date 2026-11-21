@@ -35,13 +35,13 @@ Open http://localhost:3000.
 
 ## Privacy
 
-PDF inputs are read through the browser File API and processed in the page. This app does not define an upload endpoint or send documents to a processing server. External font styles are loaded from Google Fonts; use system fonts if you need a fully offline visual experience.
+PDF inputs are read through the browser File API and processed in the page. This app does not define an upload endpoint or send documents to a processing server. PDF.js worker code is copied from the pinned npm package into the local static output at build time. No PDF-processing CDN or remote conversion API is used. The interface uses system fonts and does not request Google Fonts.
 
 ## Current limitations
 
 - A full visual text editor, OCR, Word/Excel/PowerPoint conversions, password encryption, and real image recompression are not included yet. The visual page manager handles page order and removal, not text or image content editing.
 - Browser memory limits depend on the user's device and the size of input documents.
-- Some encrypted, malformed, or unusual PDFs may not be supported by PDF-lib.
+- Some encrypted, malformed, or unusual PDFs may not be supported by PDF-lib or PDF.js.
 
 ## Stack
 
