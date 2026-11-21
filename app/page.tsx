@@ -50,7 +50,7 @@ export default function Home() {
   function parsePageRange(value:string,total:number):number[] {
     const result:number[]=[];
     for(const part of value.split(",").map(v=>v.trim()).filter(Boolean)) {
-      const match=part.match(/^(\\d+)(?:\\s*-\\s*(\\d+))?$/);
+      const match=part.match(/^(\d+)(?:\s*-\s*(\d+))?$/);
       if(!match) throw new Error("Enter pages like 1, 3-5, 8.");
       const start=Number(match[1]); const end=Number(match[2]||match[1]);
       if(start<1||end<start||end>total) throw new Error("Page range must be between 1 and "+total+".");
